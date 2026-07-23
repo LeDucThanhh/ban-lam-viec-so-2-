@@ -17,6 +17,17 @@ let links = [];
 let isAdmin = false;
 let currentFilter = '';
 
+// --- Nhóm (groups) ---
+const GROUPS_COLLECTION = 'groups';
+let groups = [];
+// Nhóm mặc định (khớp category 'TW'/'TINH' của danh sách link mặc định)
+const defaultGroups = [
+  { id: 'TW', name: 'Bộ, ngành Trung ương', order: 0 },
+  { id: 'TINH', name: 'Hệ thống dùng chung của tỉnh', order: 1 },
+];
+// Icon dùng chung cho mọi nhóm
+const GROUP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>';
+
 function fixUrl(url) {
   if (!url) return url;
   if (!/^https?:\/\//i.test(url)) return 'https://' + url;
@@ -117,51 +128,78 @@ function renderCardHtml(l, i) {
     </a>`;
 }
 
-// Phân nhóm theo Nhóm (category) admin đã chọn — mọi link đều có category
-function isTinh(l) {
-  return l.category === 'TINH';
+// Render thanh lọc (tabs) động theo danh sách nhóm
+function renderTabs() {
+  const el = document.getElementById('filterTabs');
+  if (!el) return;
+  const gl = groups.slice().sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  let html = `<button class="filter-tab${currentFilter === '' ? ' active' : ''}" data-filter="" onclick="setFilter(this)">Tất cả</button>`;
+  gl.forEach(g => {
+    html += `<button class="filter-tab${currentFilter === g.id ? ' active' : ''}" data-filter="${escHtml(g.id)}" onclick="setFilter(this)">${escHtml(g.name)}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+// Đổ danh sách nhóm vào ô chọn "Nhóm" của form thêm/sửa link
+function renderCategoryOptions() {
+  const sel = document.getElementById('linkCategory');
+  if (!sel) return;
+  const prev = sel.value;
+  const gl = groups.slice().sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  sel.innerHTML = gl.map(g => `<option value="${escHtml(g.id)}">${escHtml(g.name)}</option>`).join('');
+  if (prev && gl.some(g => g.id === prev)) sel.value = prev;
 }
 
 let cardsAnimatedOnce = false;
 function renderCards() {
+  const sectionsEl = document.getElementById('sections');
+  if (!sectionsEl) return;
   const query = normText(document.getElementById('searchInput').value);
-  const filter = currentFilter;
+  let filter = currentFilter;
 
-  let filtered = links.filter(l => {
-    const matchSearch = !query || normText(l.name).includes(query) || normText(l.url).includes(query);
-    const matchFilter = !filter || (filter === 'TINH' ? isTinh(l) : !isTinh(l));
-    return matchSearch && matchFilter;
-  });
+  const matches = (l) => (!query || normText(l.name).includes(query) || normText(l.url).includes(query));
 
-  filtered.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  // Danh sách nhóm để render (theo thứ tự) + gom card có category "lạ" (nhóm đã xóa) vào cuối
+  const groupList = groups.slice().sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const knownIds = new Set(groupList.map(g => g.id));
+  const extraCats = [...new Set(links.map(l => l.category).filter(c => c && !knownIds.has(c)))];
+  const buckets = groupList.concat(extraCats.map(c => ({ id: c, name: c || 'Chưa phân nhóm', order: 999 })));
 
-  // Chia 2 nhóm
-  const tw = filtered.filter(l => !isTinh(l));
-  const tinh = filtered.filter(l => isTinh(l));
+  // Nếu filter trỏ tới nhóm đã xóa → về "Tất cả"
+  if (filter && !buckets.some(g => g.id === filter)) { currentFilter = ''; filter = ''; renderTabs(); }
 
-  const gridTW = document.getElementById('gridTW');
-  const gridTINH = document.getElementById('gridTINH');
-  const sectionTW = document.getElementById('sectionTW');
-  const sectionTINH = document.getElementById('sectionTINH');
-
-  // Chỉ chạy animation fade lần render đầu; các lần cập nhật sau hiện ngay (đỡ "load lại")
   const skipAnim = cardsAnimatedOnce;
   cardsAnimatedOnce = true;
-  gridTW.classList.toggle('ready', skipAnim);
-  gridTINH.classList.toggle('ready', skipAnim);
-  gridTW.innerHTML = tw.map(renderCardHtml).join('');
-  gridTINH.innerHTML = tinh.map(renderCardHtml).join('');
 
-  // Số đếm trên tiêu đề nhóm (đếm tăng dần lần đầu)
-  setCount(document.getElementById('countTW'), tw.length, ' hệ thống');
-  setCount(document.getElementById('countTINH'), tinh.length, ' hệ thống');
+  let html = '';
+  let totalShown = 0;
+  buckets.forEach(g => {
+    if (filter && filter !== g.id) return;
+    const cards = links
+      .filter(l => (l.category || '') === g.id && matches(l))
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    if (cards.length === 0) return;
+    totalShown += cards.length;
+    html += `
+      <div class="section-block" data-group="${escHtml(g.id)}">
+        <p class="section-sub">
+          <span class="section-ico">${GROUP_ICON}</span>
+          <span class="section-title">${escHtml(g.name)}</span>
+          <span class="section-count" data-count="${cards.length}"></span>
+        </p>
+        <div class="grid${skipAnim ? ' ready' : ''}" id="grid-${escHtml(g.id)}">${cards.map(renderCardHtml).join('')}</div>
+      </div>`;
+  });
 
-  // Ẩn/hiện section theo filter và kết quả
-  sectionTW.style.display = (filter === 'TINH' || tw.length === 0) ? 'none' : '';
-  sectionTINH.style.display = (filter === 'TW' || tinh.length === 0) ? 'none' : '';
+  sectionsEl.innerHTML = html;
+  document.getElementById('noResults').style.display = totalShown === 0 ? 'block' : 'none';
 
-  document.getElementById('noResults').style.display =
-    (tw.length === 0 && tinh.length === 0) ? 'block' : 'none';
+  // Số đếm trên tiêu đề nhóm (đếm tăng dần lần đầu; các lần sau đặt thẳng)
+  sectionsEl.querySelectorAll('.section-count').forEach(el => {
+    const n = parseInt(el.dataset.count, 10) || 0;
+    if (skipAnim) el.textContent = n + ' hệ thống';
+    else setCount(el, n, ' hệ thống');
+  });
 
   initSortable();
 }
@@ -221,8 +259,7 @@ function initSortable() {
   sortableInstances.forEach(s => s.destroy());
   sortableInstances = [];
   if (!isAdmin || typeof Sortable === 'undefined') return;
-  ['gridTW','gridTINH'].forEach(gridId => {
-    const grid = document.getElementById(gridId);
+  document.querySelectorAll('#sections .grid').forEach(grid => {
     if (!grid || grid.children.length === 0) return;
     sortableInstances.push(Sortable.create(grid, {
       animation: 200,
@@ -298,6 +335,137 @@ async function seedIfEmptyAsAdmin() {
   }
 }
 
+// --- Nhóm: realtime + seed + CRUD ---
+function listenGroups() {
+  db.collection(GROUPS_COLLECTION).onSnapshot(snap => {
+    groups = snap.empty ? defaultGroups.slice() : snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTabs();
+    renderCategoryOptions();
+    renderCards();
+    const gm = document.getElementById('groupModal');
+    if (gm && gm.classList.contains('active')) renderGroupList();
+  }, err => {
+    console.warn('Groups listen error:', err.message);
+    groups = defaultGroups.slice();
+    renderTabs(); renderCategoryOptions(); renderCards();
+  });
+}
+
+// Seed nhóm mặc định vào Firestore — chỉ khi admin đăng nhập và chưa có nhóm nào
+async function seedGroupsIfEmptyAsAdmin() {
+  try {
+    const snap = await db.collection(GROUPS_COLLECTION).get();
+    if (snap.empty) {
+      const batch = db.batch();
+      defaultGroups.forEach(g => batch.set(db.collection(GROUPS_COLLECTION).doc(g.id), { name: g.name, order: g.order }));
+      await batch.commit();
+    }
+  } catch (e) { console.warn('Seed groups error:', e.message); }
+}
+
+function openGroupManager() {
+  renderGroupList();
+  document.getElementById('groupModal').classList.add('active');
+}
+
+function renderGroupList() {
+  const el = document.getElementById('groupList');
+  if (!el) return;
+  const gl = groups.slice().sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  if (gl.length === 0) { el.innerHTML = '<p class="group-empty">Chưa có nhóm nào. Bấm "Thêm nhóm mới" để tạo.</p>'; return; }
+  const editIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  const delIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+  el.innerHTML = gl.map((g, i) => {
+    const count = links.filter(l => (l.category || '') === g.id).length;
+    return `<div class="group-row">
+      <div class="group-row-move">
+        <button class="grow-btn" ${i === 0 ? 'disabled' : ''} onclick="moveGroup('${escHtml(g.id)}',-1)" title="Lên">&#9650;</button>
+        <button class="grow-btn" ${i === gl.length - 1 ? 'disabled' : ''} onclick="moveGroup('${escHtml(g.id)}',1)" title="Xuống">&#9660;</button>
+      </div>
+      <div class="group-row-info">
+        <strong>${escHtml(g.name)}</strong>
+        <span>${count} liên kết</span>
+      </div>
+      <div class="group-row-actions">
+        <button class="grp-edit" onclick="openEditGroupModal('${escHtml(g.id)}')" title="Sửa">${editIco}</button>
+        <button class="grp-del" onclick="deleteGroup('${escHtml(g.id)}')" title="Xóa">${delIco}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function moveGroup(id, dir) {
+  const gl = groups.slice().sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const idx = gl.findIndex(g => g.id === id);
+  const swap = idx + dir;
+  if (idx < 0 || swap < 0 || swap >= gl.length) return;
+  [gl[idx], gl[swap]] = [gl[swap], gl[idx]];
+  try {
+    const batch = db.batch();
+    gl.forEach((g, i) => batch.update(db.collection(GROUPS_COLLECTION).doc(g.id), { order: i }));
+    await batch.commit();
+  } catch (e) { notify('Lỗi: ' + e.message, 'error'); }
+}
+
+function openAddGroupModal() {
+  document.getElementById('groupEditTitle').textContent = 'Thêm nhóm';
+  document.getElementById('groupEditId').value = '';
+  document.getElementById('groupName').value = '';
+  document.getElementById('groupEditModal').classList.add('active');
+  setTimeout(() => document.getElementById('groupName').focus(), 50);
+}
+
+function openEditGroupModal(id) {
+  const g = groups.find(x => x.id === id);
+  if (!g) return;
+  document.getElementById('groupEditTitle').textContent = 'Sửa nhóm';
+  document.getElementById('groupEditId').value = id;
+  document.getElementById('groupName').value = g.name || '';
+  document.getElementById('groupEditModal').classList.add('active');
+  setTimeout(() => document.getElementById('groupName').focus(), 50);
+}
+
+function closeGroupEdit() { closeModal('groupEditModal'); }
+
+async function saveGroup() {
+  const id = document.getElementById('groupEditId').value;
+  const name = document.getElementById('groupName').value.trim();
+  if (!name) { notify('Vui lòng nhập tên nhóm!', 'warning'); return; }
+  const dup = groups.find(g => g.id !== id && (g.name || '').trim().toLowerCase() === name.toLowerCase());
+  if (dup) { notify('Tên nhóm đã tồn tại!', 'warning'); return; }
+  showLoading();
+  try {
+    if (id) {
+      await db.collection(GROUPS_COLLECTION).doc(id).update({ name });
+    } else {
+      const order = groups.reduce((m, g) => Math.max(m, g.order ?? 0), -1) + 1;
+      await db.collection(GROUPS_COLLECTION).add({ name, order });
+    }
+    closeGroupEdit();
+    notify(id ? 'Đã cập nhật nhóm!' : 'Đã thêm nhóm mới!', 'success');
+  } catch (e) {
+    notify('Lỗi: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+function deleteGroup(id) {
+  const g = groups.find(x => x.id === id);
+  if (!g) return;
+  const count = links.filter(l => (l.category || '') === id).length;
+  if (count > 0) {
+    notify(`Nhóm "${g.name}" còn ${count} liên kết. Hãy chuyển hoặc xóa các liên kết đó trước khi xóa nhóm.`, 'warning');
+    return;
+  }
+  confirmPopup(`Bạn có chắc muốn xóa nhóm "${g.name}"?`, async () => {
+    try {
+      await db.collection(GROUPS_COLLECTION).doc(id).delete();
+      notify('Đã xóa nhóm!', 'success');
+    } catch (e) { notify('Lỗi: ' + e.message, 'error'); }
+  });
+}
+
 // --- Auth ---
 const ICON_LOGIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>';
 const ICON_LOGOUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
@@ -307,8 +475,8 @@ auth.onAuthStateChanged(user => {
   document.body.classList.toggle('admin-mode', isAdmin);
   const btn = document.getElementById('btnAdminToggle');
   btn.innerHTML = (isAdmin ? ICON_LOGOUT : ICON_LOGIN) + (isAdmin ? ' Đăng xuất' : ' Đăng nhập');
-  // Khi admin đăng nhập: nếu Firestore còn rỗng thì seed 14 liên kết mặc định
-  if (user) seedIfEmptyAsAdmin();
+  // Khi admin đăng nhập: nếu Firestore còn rỗng thì seed dữ liệu mặc định
+  if (user) { seedIfEmptyAsAdmin(); seedGroupsIfEmptyAsAdmin(); }
   // Load lại danh sách liên kết khi đăng nhập / đăng xuất
   renderCards();
 });
@@ -394,7 +562,8 @@ function openAddModal(category) {
   document.getElementById('linkEditId').value = '';
   document.getElementById('linkName').value = '';
   document.getElementById('linkUrl').value = '';
-  document.getElementById('linkCategory').value = category || 'TW';
+  const firstCat = (groups[0] && groups[0].id) || 'TW';
+  document.getElementById('linkCategory').value = category || firstCat;
   resetLogoUpload();
   document.getElementById('linkModal').classList.add('active');
 }
@@ -540,15 +709,20 @@ function finishLoading() {
 
 // Lắng nghe Firestore (đọc công khai). Nếu rỗng vẫn hiển thị danh sách mặc định.
 try {
+  listenGroups();
   listenLinks();
 } catch (e) {
   console.warn('Firebase init error:', e.message);
+  groups = defaultGroups.slice();
   links = defaultLinks.map((l, i) => ({ ...l, id: 'default_' + i }));
+  renderTabs();
+  renderCategoryOptions();
   renderCards();
   finishLoading();
 }
 // Phòng trường hợp Firestore treo, hiện danh sách mặc định sau 3s
 setTimeout(() => {
+  if (groups.length === 0) { groups = defaultGroups.slice(); renderTabs(); renderCategoryOptions(); }
   if (links.length === 0) {
     links = defaultLinks.map((l, i) => ({ ...l, id: 'default_' + i }));
     renderCards();

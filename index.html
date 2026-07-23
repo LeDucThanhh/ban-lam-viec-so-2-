@@ -46,11 +46,7 @@
     <input type="search" id="searchInput" name="search" placeholder="Tìm kiếm hệ thống, nền tảng hoặc dịch vụ cần truy cập..." autocomplete="off" oninput="onSearchInput()">
   </div>
 
-  <div class="filter-tabs" id="filterTabs">
-    <button class="filter-tab active" data-filter="" onclick="setFilter(this)">Tất cả</button>
-    <button class="filter-tab" data-filter="TW" onclick="setFilter(this)">Bộ, ngành Trung ương</button>
-    <button class="filter-tab" data-filter="TINH" onclick="setFilter(this)">Hệ thống cấp tỉnh</button>
-  </div>
+  <div class="filter-tabs" id="filterTabs"></div>
 </header>
 
 <main>
@@ -60,32 +56,15 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
       Mã QR
     </button>
+    <button class="btn-groups" onclick="openGroupManager()" title="Quản lý nhóm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+      Nhóm
+    </button>
     <button class="btn-add" onclick="openAddModal()">+ Thêm<span class="btn-add-long">liên kết mới</span></button>
   </div>
 
-  <!-- Ngăn 1: Bộ, ngành Trung ương -->
-  <div class="section-block" id="sectionTW">
-    <p class="section-sub">
-      <span class="section-ico">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
-      </span>
-      <span class="section-title">Hệ thống Bộ, ngành</span>
-      <span class="section-count" id="countTW"></span>
-    </p>
-    <div class="grid" id="gridTW"></div>
-  </div>
-
-  <!-- Ngăn 2: Hệ thống cấp tỉnh -->
-  <div class="section-block" id="sectionTINH">
-    <p class="section-sub">
-      <span class="section-ico">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
-      </span>
-      <span class="section-title">Các nền tảng, hệ thống dùng chung của tỉnh</span>
-      <span class="section-count" id="countTINH"></span>
-    </p>
-    <div class="grid" id="gridTINH"></div>
-  </div>
+  <!-- Các nhóm được render động theo danh sách 'groups' trong Firestore -->
+  <div id="sections"></div>
 
   <div class="no-results" id="noResults">Không tìm thấy liên kết nào phù hợp.</div>
 </main>
@@ -151,13 +130,39 @@
       <input type="file" id="logoFile" accept="image/*" style="display:none" onchange="previewLogo(this)">
     </div>
     <label>Nhóm</label>
-    <select id="linkCategory">
-      <option value="TW">Bộ, ngành Trung ương</option>
-      <option value="TINH">Hệ thống cấp tỉnh</option>
-    </select>
+    <select id="linkCategory"></select>
     <div class="modal-buttons">
       <button class="btn-cancel" onclick="closeModal('linkModal')">Hủy</button>
       <button class="btn-save" onclick="saveLink()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Manager Modal -->
+<div class="modal-overlay" id="groupModal">
+  <div class="modal">
+    <h2>Quản lý nhóm</h2>
+    <div class="group-list" id="groupList"></div>
+    <button class="btn-add-group" onclick="openAddGroupModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Thêm nhóm mới
+    </button>
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closeModal('groupModal')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Group Modal -->
+<div class="modal-overlay" id="groupEditModal">
+  <div class="modal">
+    <h2 id="groupEditTitle">Thêm nhóm</h2>
+    <input type="hidden" id="groupEditId">
+    <label>Tên nhóm</label>
+    <input type="text" id="groupName" placeholder="VD: Hệ thống cấp xã" onkeydown="if(event.key==='Enter')saveGroup()">
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closeGroupEdit()">Hủy</button>
+      <button class="btn-save" onclick="saveGroup()">Lưu</button>
     </div>
   </div>
 </div>

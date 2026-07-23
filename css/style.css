@@ -944,4 +944,71 @@ a.footer-line:hover svg { transform: scale(1.18); filter: drop-shadow(0 0 5px rg
   .footer-org { font-size: 14px; }
   .footer-contact { gap: 6px 16px; }
   .footer-line { font-size: 12.5px; }
+  .btn-groups { padding: 8px 12px; font-size: 12px; gap: 6px; }
+  .btn-groups svg { width: 15px; height: 15px; }
+  .btn-groups-long { display: none; }
 }
+
+/* ===== Nút "Quản lý nhóm" (chỉ admin) ===== */
+.btn-groups {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  background: rgba(255,255,255,0.92);
+  color: var(--blue-deep);
+  border: 1.5px solid rgba(70,185,255,0.6);
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  box-shadow: 0 0 10px rgba(46,150,255,0.16);
+  transition: background 0.18s, transform 0.15s, box-shadow 0.2s;
+}
+.btn-groups svg { width: 16px; height: 16px; flex-shrink: 0; }
+.btn-groups:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 0 14px rgba(46,150,255,0.34); }
+.admin-mode .btn-groups { display: inline-flex; }
+
+/* ===== Popup quản lý nhóm ===== */
+.group-list { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 14px; max-height: 48vh; overflow-y: auto; }
+.group-empty { color: #64748b; font-size: 14px; text-align: center; padding: 18px 0; }
+.group-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border: 1.5px solid rgba(70,185,255,0.4);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.72);
+}
+.group-row-move { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+.grow-btn {
+  border: none; background: rgba(21,101,192,0.09); color: var(--blue-deep);
+  width: 26px; height: 18px; border-radius: 5px; cursor: pointer;
+  font-size: 9px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.grow-btn:hover:not(:disabled) { background: rgba(21,101,192,0.2); }
+.grow-btn:disabled { opacity: 0.3; cursor: default; }
+.group-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.group-row-info strong { font-size: 15px; color: var(--blue-deep); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group-row-info span { font-size: 12px; color: #64748b; }
+.group-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.group-row-actions button {
+  width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: filter 0.15s;
+}
+.group-row-actions .grp-edit { background: rgba(21,101,192,0.1); color: var(--blue-deep); }
+.group-row-actions .grp-del { background: rgba(220,38,38,0.1); color: #dc2626; }
+.group-row-actions button svg { width: 16px; height: 16px; }
+.group-row-actions button:hover { filter: brightness(0.94); }
+.btn-add-group {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 11px 16px; margin-bottom: 4px;
+  background: var(--blue); color: #fff; border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 6px 16px rgba(21,101,192,0.22);
+}
+.btn-add-group svg { width: 16px; height: 16px; }
+.btn-add-group:hover { transform: translateY(-1px); }
