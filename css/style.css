@@ -243,6 +243,7 @@ header::after {
 /* Tab lọc */
 .filter-tabs {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
   max-width: 700px;
@@ -250,7 +251,7 @@ header::after {
   padding: 5px;
   background: #FFFFFF;
   border: 1.5px solid rgba(70,185,255,0.75);
-  border-radius: 999px;
+  border-radius: 28px;
   transform: translateY(50%);
   box-shadow:
     0 0 0 1px rgba(70,185,255,0.2),
@@ -259,7 +260,9 @@ header::after {
     0 8px 22px rgba(21,101,192,0.12);
 }
 .filter-tab {
-  flex: 1;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 320px;
   border: none;
   background: transparent;
   padding: 10px 16px;
@@ -269,6 +272,8 @@ header::after {
   color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: background 0.18s, color 0.18s;
 }
 .filter-tab:hover { color: var(--blue); background: rgba(21,101,192,0.07); }
